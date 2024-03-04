@@ -1,4 +1,9 @@
-
+//-- FreeRTOS for ESP32 using single processor core
+#if CONFIG_FREERTOS_UNICORE
+  static const BaseType_t app_cpu = 0;
+#else
+  static const BaseType_t app_cpu = 1;
+#endif
 
 
 //--      FLAGS      --//
@@ -9,8 +14,8 @@ static char *commandPtr = NULL;
 static const uint8_t bufferLength = 255; //-- length of serial buffer is 255
 
 //-- Read serial input task
-void readSerial(void *parameter) { 
-  parameter = NULL; //-- function does not accept parameters
+void readSerial(void *parameters) { 
+  parameters = NULL; //-- function does not accept parameters
 
   char c; //-- input input character from serial input
   char command[bufferLength];  //-- character buffer or 'queue'
@@ -48,11 +53,55 @@ void readSerial(void *parameter) {
           
           
         }
-        
+      //-- upon new line recieved
+      memset(command, 0, bufferLength);
+      index = 0;
       }
-      
     }
-    
   }
+}
+
+void echoCommand(void *parameters) {
+  parameters = NULL;
+  while(1) {
+    if (commandReady) {
+      Serial.println(commandPtr);
+      vPortFree(commandPtr);
+      commandPtr = NULL;  //-- message display command ptr
+      commandReady = 0; //-- reset commandReady flag
+    }
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+  vTaskDelay(1000 / portTICK_PERIOD_MS);
+  Serial.println();
+  Serial.println("---Command Dump---");
+  Serial.println("Enter a command:");
+
+  xTaskCreatePinnedToCore(readSerial,
+                          "Read Command",
+                          1024,
+                          NULL,
+                          1,
+                          NULL,
+                          app_cpu);
+
+  // Start Serial print task
+  xTaskCreatePinnedToCore(echoCommand,
+                          "Echo Command",
+                          1024,
+                          NULL,
+                          1,
+                          NULL,
+                          app_cpu);
   
+  // Delete "setup and loop" task
+  vTaskDelete(NULL);
+  
+}
+
+void loop() {
+  // Execution should never get here, as the task is deleted in the setup task
 }
