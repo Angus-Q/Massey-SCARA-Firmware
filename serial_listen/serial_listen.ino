@@ -1,6 +1,6 @@
  #include <HardwareSerial.h>
 #include <Arduino.h>
-#include "HX711.h"
+#include "HX711_ADC.h"
 
 #define RXD2 16
 #define TXD2 17
@@ -10,9 +10,13 @@
 #define dirPin 2
 #define enPin 15
 
+float xx = 0;
+boolean newDataReady = false;
+unsigned long t = 0;
+
 // HX711 circuit wiring
-const int HX711_dout = 27;
-const int HX711_sck = 26;
+const int HX711_dout = 18;
+const int HX711_sck = 19;
 
 int reading_prev;
 
@@ -81,6 +85,22 @@ void readSerial(void *parameters) {
   }
 }
 
+void compute_weight(void *parameters) {
+
+  while(1) {
+
+    
+    
+    LoadCell.update();
+    xx = LoadCell.getData();
+//    Serial.print("frick: ");
+//    Serial.println(xx);
+    vTaskDelay(100 / portTICK_PERIOD_MS);
+  }
+
+  
+}
+
 void testingArmCommands(void *parameters) {
 
   digitalWrite(enPin,LOW); //-- disabled by default, low to run
@@ -99,16 +119,16 @@ void testingArmCommands(void *parameters) {
     vTaskDelay(1500 / portTICK_PERIOD_MS);
 //    Serial.println("AIR now, close the bois");
     Serial2.println("AIR,V");
-    vTaskDelay(1500 / portTICK_PERIOD_MS);
+    vTaskDelay(2300 / portTICK_PERIOD_MS);
 //    Serial.println("STEP 3: MOVE TO PICKUP");
     Serial2.println("MOVE,-66,12.5,0"); //-- move to pickup location
     vTaskDelay(1500 / portTICK_PERIOD_MS);
 //    Serial.println("STEP 4: RAM DOWN");
     Serial2.println("AIR,U"); //-- RAM DOWN
-    vTaskDelay(3500 / portTICK_PERIOD_MS);
+    vTaskDelay(4500 / portTICK_PERIOD_MS);
 //    Serial.println("STEP 5:");
     Serial2.println("AIR,B"); //-- air b for air bud (open claws)
-    vTaskDelay(1700 / portTICK_PERIOD_MS);
+    vTaskDelay(2300 / portTICK_PERIOD_MS);
 //    Serial.println("STEP 6: air up");
     Serial2.println("AIR,D");
     vTaskDelay(1700 / portTICK_PERIOD_MS);
@@ -116,26 +136,30 @@ void testingArmCommands(void *parameters) {
     
     vTaskDelay(4000 / portTICK_PERIOD_MS);
     Serial2.println("AIR,U"); //-- ram down
-    vTaskDelay(2000 / portTICK_PERIOD_MS);
+    vTaskDelay(3000 / portTICK_PERIOD_MS);
 //    Serial.println("AIR now, close the bois");
     Serial2.println("AIR,V");
     vTaskDelay(500 / portTICK_PERIOD_MS);
     Serial2.println("AIR,D");
-    vTaskDelay(1500 / portTICK_PERIOD_MS);  //-- ram up
+    vTaskDelay(4300 / portTICK_PERIOD_MS);  //-- ram up
     String loc;
     //-- take measurment
 
-    for (int i = 0; i < 10; i++) {
-      
-    }
+    Serial.print("Data: ");
 
+    if (xx > 10.95) {
+      loc = "MOVE,-37.5,-10,0";
+    } else if (xx < 4) {
+      loc = "MOVE,-70,-40,0";
+    } else {
+      loc = "MOVE,-10,-40,0";
+    }
+    Serial.print(xx);
     Serial2.println("AIR,U");
     vTaskDelay(2500 / portTICK_PERIOD_MS);
     Serial2.println("AIR,B");
     vTaskDelay(2000 / portTICK_PERIOD_MS);
     Serial2.println("AIR,D"); //-- ram up
-    scale.set_scale();
-    scale.tare();
     vTaskDelay(2500 / portTICK_PERIOD_MS);
     Serial2.println(loc);
     vTaskDelay(2500 / portTICK_PERIOD_MS);
@@ -170,9 +194,18 @@ void echoCommand(void *parameters) {
       }
       if (String(commandPtr) == "START") {
 
+          vTaskDelay(100 / portTICK_PERIOD_MS);
           xTaskCreatePinnedToCore(testingArmCommands,
                           "Run Program",
                           4048,
+                          NULL,
+                          1,
+                          NULL,
+                          app_cpu);
+
+          xTaskCreatePinnedToCore(compute_weight,
+                          "mass",
+                          4024,
                           NULL,
                           1,
                           NULL,
@@ -214,12 +247,14 @@ void setup(void) {
   boolean _tare = true;
 
   LoadCell.start(stabilizingtime, _tare);
+  
   if (LoadCell.getTareTimeoutFlag()) {
+    Serial.println("hi");
     while(1);
+    
   }
-  else {
-    LoadCell.setCalFactor(1881.77);
-  }
+
+  LoadCell.setCalFactor(1881.77); //-- 1866.75
   
   Serial.println();
   Serial.println("---Command Dump---");
