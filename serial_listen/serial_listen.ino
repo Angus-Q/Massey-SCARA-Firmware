@@ -1,5 +1,6 @@
-#include <HardwareSerial.h>
+ #include <HardwareSerial.h>
 #include <Arduino.h>
+#include "HX711.h"
 
 #define RXD2 16
 #define TXD2 17
@@ -9,12 +10,22 @@
 #define dirPin 2
 #define enPin 15
 
+// HX711 circuit wiring
+const int HX711_dout = 27;
+const int HX711_sck = 26;
+
+int reading_prev;
+
+HX711_ADC LoadCell(HX711_dout, HX711_sck);
+
 //-- FreeRTOS for ESP32 using single processor core
 #if CONFIG_FREERTOS_UNICORE
   static const BaseType_t app_cpu = 0;
 #else
   static const BaseType_t app_cpu = 1;
 #endif
+
+bool homeOnce = 1;
 
 //--      FLAGS      --//
 static volatile uint8_t commandReady = 0;
@@ -70,16 +81,86 @@ void readSerial(void *parameters) {
   }
 }
 
+void testingArmCommands(void *parameters) {
+
+  digitalWrite(enPin,LOW); //-- disabled by default, low to run
+
+  
+
+  while(1) {
+    
+    if (homeOnce) {
+      vTaskDelay(100 / portTICK_PERIOD_MS);
+//      Serial.println("STEP 1: HOME THE BOT");
+      Serial2.println("HOME");
+      homeOnce = 0;
+    }
+
+    vTaskDelay(1500 / portTICK_PERIOD_MS);
+//    Serial.println("AIR now, close the bois");
+    Serial2.println("AIR,V");
+    vTaskDelay(1500 / portTICK_PERIOD_MS);
+//    Serial.println("STEP 3: MOVE TO PICKUP");
+    Serial2.println("MOVE,-66,12.5,0"); //-- move to pickup location
+    vTaskDelay(1500 / portTICK_PERIOD_MS);
+//    Serial.println("STEP 4: RAM DOWN");
+    Serial2.println("AIR,U"); //-- RAM DOWN
+    vTaskDelay(3500 / portTICK_PERIOD_MS);
+//    Serial.println("STEP 5:");
+    Serial2.println("AIR,B"); //-- air b for air bud (open claws)
+    vTaskDelay(1700 / portTICK_PERIOD_MS);
+//    Serial.println("STEP 6: air up");
+    Serial2.println("AIR,D");
+    vTaskDelay(1700 / portTICK_PERIOD_MS);
+    Serial2.println("MOVE,23.5,-29,0"); //-- weight location
+    
+    vTaskDelay(4000 / portTICK_PERIOD_MS);
+    Serial2.println("AIR,U"); //-- ram down
+    vTaskDelay(2000 / portTICK_PERIOD_MS);
+//    Serial.println("AIR now, close the bois");
+    Serial2.println("AIR,V");
+    vTaskDelay(500 / portTICK_PERIOD_MS);
+    Serial2.println("AIR,D");
+    vTaskDelay(1500 / portTICK_PERIOD_MS);  //-- ram up
+    String loc;
+    //-- take measurment
+
+    for (int i = 0; i < 10; i++) {
+      
+    }
+
+    Serial2.println("AIR,U");
+    vTaskDelay(2500 / portTICK_PERIOD_MS);
+    Serial2.println("AIR,B");
+    vTaskDelay(2000 / portTICK_PERIOD_MS);
+    Serial2.println("AIR,D"); //-- ram up
+    scale.set_scale();
+    scale.tare();
+    vTaskDelay(2500 / portTICK_PERIOD_MS);
+    Serial2.println(loc);
+    vTaskDelay(2500 / portTICK_PERIOD_MS);
+//    Serial.println("STEP 7:");
+    Serial2.println("AIR,U");
+    vTaskDelay(2500 / portTICK_PERIOD_MS);
+//    Serial.println("STEP 8:");
+    Serial2.println("AIR,V");
+    vTaskDelay(2500 / portTICK_PERIOD_MS);
+//    Serial.println("STEP 9:");
+    Serial2.println("AIR,D");  //-- d for down but it goes up
+  }
+  
+}
+
 void echoCommand(void *parameters) {
   while(1) {
-
+//    Serial.println(scale.get_units(10), 1);  //-- only 1 active serial print now for monitor purpose
     //-- there is a problem where sometimes a command does not send through serial monitor
     //-- check! does the origional arduino code work or have this problem?
     //-- could it be todo with context switching? Ask sen...
     if (commandReady) {
       if (String(commandPtr) == "fuck") {
-        Serial.println("fucken aye this works");
-        Serial2.print("HOME\n");
+//        Serial.println("fucken aye this works");
+        Serial2.println("AIR,U");
       }
       if (String(commandPtr) == "DIS_CONV") {
         digitalWrite(enPin,HIGH);
@@ -87,7 +168,17 @@ void echoCommand(void *parameters) {
       if (String(commandPtr) == "EN_CONV") {
         digitalWrite(enPin, LOW);
       }
-      Serial.println(commandPtr);
+      if (String(commandPtr) == "START") {
+
+          xTaskCreatePinnedToCore(testingArmCommands,
+                          "Run Program",
+                          4048,
+                          NULL,
+                          1,
+                          NULL,
+                          app_cpu);
+      }
+//      Serial.println(commandPtr);
       vPortFree(commandPtr);
       commandPtr = NULL;  //-- message display command ptr
       commandReady = 0; //-- reset commandReady flag
@@ -105,9 +196,9 @@ void runConv(void *parameters) {
   while(1) {
     //-- step with the microcontroller to make the belt move
     digitalWrite(stepPin,HIGH);
-    delayMicroseconds(40);
+    delayMicroseconds(100);
     digitalWrite(stepPin,LOW);
-    delayMicroseconds(40);
+    delayMicroseconds(100);
   }
   
 }
@@ -117,12 +208,25 @@ void setup(void) {
   
   Serial.begin(115200);
   vTaskDelay(1000 / portTICK_PERIOD_MS);
+  LoadCell.begin();
+
+  unsigned long stabilizingtime = 2000;
+  boolean _tare = true;
+
+  LoadCell.start(stabilizingtime, _tare);
+  if (LoadCell.getTareTimeoutFlag()) {
+    while(1);
+  }
+  else {
+    LoadCell.setCalFactor(1881.77);
+  }
+  
   Serial.println();
   Serial.println("---Command Dump---");
   Serial.println("Enter a command:");
 
   Serial2.begin(115200, SERIAL_8N1, RXD2, TXD2);
-  Serial.println("Serial2 Initialised");
+//  Serial.println("Serial2 Initialised");
 
   xTaskCreatePinnedToCore(readSerial,
                           "Read Command",
@@ -148,6 +252,7 @@ void setup(void) {
                           1,
                           NULL,
                           app_cpu);
+
   
   // Delete "app_main" task
   vTaskDelete(NULL);
