@@ -87,7 +87,7 @@ void readSerial(void *parameters) {
 
 void compute_weight(void *parameters) {
 
-  LoadCell.setSamplesInUse(32); //-- default 16 to now 64
+  LoadCell.setSamplesInUse(24); //-- default 16 to now 64
 
   while(1) {
 
@@ -102,7 +102,7 @@ void compute_weight(void *parameters) {
 
 //    Serial.print("frick: ");
 //    Serial.println(xx);
-    vTaskDelay(15 / portTICK_PERIOD_MS);
+    vTaskDelay(20 / portTICK_PERIOD_MS);
   }
 
   
@@ -120,29 +120,32 @@ void testingArmCommands(void *parameters) {
       vTaskDelay(1500 / portTICK_PERIOD_MS);
 //      Serial.println("STEP 1: HOME THE BOT");
       Serial2.println("HOME");
+      
       //vTaskDelay(26000 / portTICK_PERIOD_MS);
       homeOnce = 0;
-      vTaskDelay(4000 / portTICK_PERIOD_MS);
+      vTaskDelay(8000 / portTICK_PERIOD_MS);
+      Serial2.print("SPEEDSET,900,750");
       
 
     }
     String loc;
 
 
-    vTaskDelay(1000 / portTICK_PERIOD_MS);  //-- this may (may be able to be reduced?)
+    vTaskDelay(750 / portTICK_PERIOD_MS);  //-- this may (may be able to be reduced?)
 //    Serial.println("AIR now, close the bois");
     Serial2.println("AIR,V");
     vTaskDelay(850 / portTICK_PERIOD_MS);
 //    Serial.println("STEP 3: MOVE TO PICKUP");
     Serial2.println("MOVE,1,6.25,0"); //-- move to pickup location
-    vTaskDelay(850 / portTICK_PERIOD_MS);
-    if (loc == ("MOVE,-13,-92.5,0")) {
-      vTaskDelay(1600 / portTICK_PERIOD_MS);
+    vTaskDelay(750 / portTICK_PERIOD_MS);
+    if (loc == ("MOVE,-13,-93,0")) {  //-- was last one steel? flag
+      vTaskDelay(1850 / portTICK_PERIOD_MS);
+      Serial.println("last one is steel me thinks");
     }
 //    Serial.println("STEP 4: RAM DOWN");
     Serial2.println("AIR,U"); //-- RAM DOWN
     Serial2.println("AIR,U"); //-- RAM DOWN
-    vTaskDelay(550 / portTICK_PERIOD_MS);
+    vTaskDelay(700 / portTICK_PERIOD_MS);
 //    Serial.println("STEP 5:");
     Serial2.println("AIR,B"); //-- air b for air bud (open claws)
     vTaskDelay(230 / portTICK_PERIOD_MS);
@@ -158,7 +161,7 @@ void testingArmCommands(void *parameters) {
     Serial2.println("AIR,V");
     //vTaskDelay(400 / portTICK_PERIOD_MS);
     //Serial2.println("AIR,D");
-    vTaskDelay(2200 / portTICK_PERIOD_MS);  //-- ram up
+    vTaskDelay(2000 / portTICK_PERIOD_MS);  //-- ram up
     
     //-- take measurment
 
@@ -169,9 +172,9 @@ void testingArmCommands(void *parameters) {
     } else if (xx < 4) {
       loc = "MOVE,-55,-10,0";
     } else {
-      loc = "MOVE,-13,-92.5,0";
+      loc = "MOVE,-13,-93,0";
     }
-    Serial.print(xx);
+    Serial.println(xx);
     vTaskDelay(500 / portTICK_PERIOD_MS);
     Serial2.println("AIR,U");
     vTaskDelay(500 / portTICK_PERIOD_MS);
@@ -189,7 +192,7 @@ void testingArmCommands(void *parameters) {
     vTaskDelay(300 / portTICK_PERIOD_MS); 
 // //    Serial.println("STEP 9:");
 //     Serial2.println("AIR,D");  //-- d for down but it goes up
-    if(loc == ("MOVE,-13,-92.5,0")){
+    if(loc == ("MOVE,-13,-93,0")){
       vTaskDelay(550 / portTICK_PERIOD_MS);
       Serial2.println("AIR,U");
       vTaskDelay(175 / portTICK_PERIOD_MS);
@@ -256,12 +259,23 @@ void runConv(void *parameters) {
   pinMode(enPin,OUTPUT);
   digitalWrite(enPin,HIGH); //-- disabled by default, low to run
   digitalWrite(dirPin,LOW); //-- correct direction
+  Serial.println("conv start acc");
+  for (int i = 0; i < 500; i++) {
+    //-- step with the microcontroller to make the belt move
+    digitalWrite(stepPin,HIGH);
+    delayMicroseconds(540-i);
+    digitalWrite(stepPin,LOW);
+    delayMicroseconds(540-i);
+    vTaskDelay(10 / portTICK_PERIOD_MS);
+  }
+  Serial.println("conv end acc");
+
   while(1) {
     //-- step with the microcontroller to make the belt move
     digitalWrite(stepPin,HIGH);
-    delayMicroseconds(80);
+    delayMicroseconds(50);
     digitalWrite(stepPin,LOW);
-    delayMicroseconds(80);
+    delayMicroseconds(50);
   }
   
 }
@@ -294,7 +308,7 @@ void setup(void) {
 //  Serial.println("Serial2 Initialised");
   vTaskDelay(1000 / portTICK_PERIOD_MS);
   
-  Serial2.print("SPEEDSET,900,750");
+  
 
   xTaskCreatePinnedToCore(readSerial,
                           "Read Command",
