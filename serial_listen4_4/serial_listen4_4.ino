@@ -87,15 +87,22 @@ void readSerial(void *parameters) {
 
 void compute_weight(void *parameters) {
 
+  LoadCell.setSamplesInUse(32); //-- default 16 to now 64
+
   while(1) {
 
     
     
+    // if (LoadCell.update()) {
+    //   xx = LoadCell.getData();
+    // }
+   
     LoadCell.update();
     xx = LoadCell.getData();
+
 //    Serial.print("frick: ");
 //    Serial.println(xx);
-    vTaskDelay(100 / portTICK_PERIOD_MS);
+    vTaskDelay(15 / portTICK_PERIOD_MS);
   }
 
   
@@ -110,40 +117,49 @@ void testingArmCommands(void *parameters) {
   while(1) {
     
     if (homeOnce) {
-      vTaskDelay(100 / portTICK_PERIOD_MS);
+      vTaskDelay(1500 / portTICK_PERIOD_MS);
 //      Serial.println("STEP 1: HOME THE BOT");
       Serial2.println("HOME");
       //vTaskDelay(26000 / portTICK_PERIOD_MS);
       homeOnce = 0;
-    }
+      vTaskDelay(4000 / portTICK_PERIOD_MS);
+      
 
-    vTaskDelay(1500 / portTICK_PERIOD_MS);
+    }
+    String loc;
+
+
+    vTaskDelay(1000 / portTICK_PERIOD_MS);  //-- this may (may be able to be reduced?)
 //    Serial.println("AIR now, close the bois");
     Serial2.println("AIR,V");
-    vTaskDelay(2300 / portTICK_PERIOD_MS);
+    vTaskDelay(850 / portTICK_PERIOD_MS);
 //    Serial.println("STEP 3: MOVE TO PICKUP");
-    Serial2.println("MOVE,1,5.5,0"); //-- move to pickup location
-    vTaskDelay(1500 / portTICK_PERIOD_MS);
+    Serial2.println("MOVE,1,6.25,0"); //-- move to pickup location
+    vTaskDelay(850 / portTICK_PERIOD_MS);
+    if (loc == ("MOVE,-13,-92.5,0")) {
+      vTaskDelay(1600 / portTICK_PERIOD_MS);
+    }
 //    Serial.println("STEP 4: RAM DOWN");
     Serial2.println("AIR,U"); //-- RAM DOWN
-    vTaskDelay(5000 / portTICK_PERIOD_MS);
+    Serial2.println("AIR,U"); //-- RAM DOWN
+    vTaskDelay(550 / portTICK_PERIOD_MS);
 //    Serial.println("STEP 5:");
     Serial2.println("AIR,B"); //-- air b for air bud (open claws)
-    vTaskDelay(2300 / portTICK_PERIOD_MS);
+    vTaskDelay(230 / portTICK_PERIOD_MS);
 //    Serial.println("STEP 6: air up");
     Serial2.println("AIR,D");
-    vTaskDelay(1700 / portTICK_PERIOD_MS);
+    vTaskDelay(300 / portTICK_PERIOD_MS);
     Serial2.println("MOVE,22,-21,0"); //-- weight location
     
-    vTaskDelay(4000 / portTICK_PERIOD_MS);
+    vTaskDelay(500 / portTICK_PERIOD_MS);
     Serial2.println("AIR,U"); //-- ram down
-    vTaskDelay(3000 / portTICK_PERIOD_MS);
+    vTaskDelay(600 / portTICK_PERIOD_MS);
 //    Serial.println("AIR now, close the bois");
     Serial2.println("AIR,V");
     //vTaskDelay(400 / portTICK_PERIOD_MS);
     //Serial2.println("AIR,D");
-    vTaskDelay(4500 / portTICK_PERIOD_MS);  //-- ram up
-    String loc;
+    vTaskDelay(2200 / portTICK_PERIOD_MS);  //-- ram up
+    
     //-- take measurment
 
     Serial.print("Data: ");
@@ -151,35 +167,40 @@ void testingArmCommands(void *parameters) {
     if (xx > 11.1) {
       loc = "MOVE,-34,-10,0";
     } else if (xx < 4) {
-      loc = "MOVE,-45,-10,0";
+      loc = "MOVE,-55,-10,0";
     } else {
       loc = "MOVE,-13,-92.5,0";
     }
     Serial.print(xx);
+    vTaskDelay(500 / portTICK_PERIOD_MS);
     Serial2.println("AIR,U");
-    vTaskDelay(2500 / portTICK_PERIOD_MS);
+    vTaskDelay(500 / portTICK_PERIOD_MS);
     Serial2.println("AIR,B");
-    vTaskDelay(2000 / portTICK_PERIOD_MS);
+    vTaskDelay(500 / portTICK_PERIOD_MS);
     Serial2.println("AIR,D"); //-- ram up
-    vTaskDelay(2500 / portTICK_PERIOD_MS);
+    vTaskDelay(500 / portTICK_PERIOD_MS);
     Serial2.println(loc);
-    vTaskDelay(2500 / portTICK_PERIOD_MS);
+    vTaskDelay(500 / portTICK_PERIOD_MS);
 //    Serial.println("STEP 7:");
-    Serial2.println("AIR,U");
-    vTaskDelay(2500 / portTICK_PERIOD_MS);
+    // Serial2.println("AIR,U");
+    // vTaskDelay(1000 / portTICK_PERIOD_MS);
 //    Serial.println("STEP 8:");
     Serial2.println("AIR,V");
-    vTaskDelay(2500 / portTICK_PERIOD_MS);
-//    Serial.println("STEP 9:");
-    Serial2.println("AIR,D");  //-- d for down but it goes up
+    vTaskDelay(300 / portTICK_PERIOD_MS); 
+// //    Serial.println("STEP 9:");
+//     Serial2.println("AIR,D");  //-- d for down but it goes up
     if(loc == ("MOVE,-13,-92.5,0")){
-      vTaskDelay(2500 / portTICK_PERIOD_MS);
+      vTaskDelay(550 / portTICK_PERIOD_MS);
       Serial2.println("AIR,U");
-      vTaskDelay(4000 / portTICK_PERIOD_MS);
+      vTaskDelay(175 / portTICK_PERIOD_MS);
       Serial2.println("MOVE,-39,-92.5,0");
-      vTaskDelay(2500 / portTICK_PERIOD_MS);
+      vTaskDelay(650 / portTICK_PERIOD_MS);
       Serial2.println("AIR,D");  //-- d for down but it goes up
+      //vTaskDelay(700 / portTICK_PERIOD_MS);
     }
+
+
+
   }
   
 }
@@ -238,9 +259,9 @@ void runConv(void *parameters) {
   while(1) {
     //-- step with the microcontroller to make the belt move
     digitalWrite(stepPin,HIGH);
-    delayMicroseconds(100);
+    delayMicroseconds(80);
     digitalWrite(stepPin,LOW);
-    delayMicroseconds(100);
+    delayMicroseconds(80);
   }
   
 }
@@ -271,6 +292,9 @@ void setup(void) {
 
   Serial2.begin(115200, SERIAL_8N1, RXD2, TXD2);
 //  Serial.println("Serial2 Initialised");
+  vTaskDelay(1000 / portTICK_PERIOD_MS);
+  
+  Serial2.print("SPEEDSET,900,750");
 
   xTaskCreatePinnedToCore(readSerial,
                           "Read Command",
